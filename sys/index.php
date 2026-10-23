@@ -1,13 +1,11 @@
 <?php
-declare(strict_types=1);
+require_once 'con/config.php';
 
-require_once __DIR__ . '/con/config.php';
-startAppSession();
-
-if (isset($_SESSION['user']) && is_array($_SESSION['user'])) {
-    header('Location: dashboard.php');
+if (isset($_SESSION['user_id'])) {
+    header("Location: dashboard.php");
+    exit;
+} else {
+    header("Location: login.php");
     exit;
 }
-
-header('Location: login.php');
-exit;
+?>
