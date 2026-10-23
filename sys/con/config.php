@@ -56,14 +56,21 @@ function readSheet(string $sheetName): array
 
     $result = json_decode($response, true);
 
-    if (
-        !is_array($result) ||
-        ($result['success'] ?? false) !== true
-    ) {
-        throw new RuntimeException(
-            'Google Apps Script ปฏิเสธคำขอหรือส่งข้อมูลไม่ถูกต้อง'
-        );
-    }
+
+if (!is_array($result)) {
+    throw new RuntimeException(
+        'คำตอบไม่ใช่ JSON ที่ถูกต้อง'
+    );
+}
+
+if (($result['success'] ?? false) !== true) {
+    $message = $result['message'] ?? 'ไม่ทราบสาเหตุ';
+
+    throw new RuntimeException(
+        'Apps Script: ' . $message
+    );
+}
+
 
     return $result;
 }
