@@ -7,7 +7,7 @@ $status = 'ยังไม่ได้ทดสอบ';
 $rowCount = null;
 
 try {
-    require_once __DIR__ . '/config.php';
+    require_once __DIR__ . 'con/config.php';
 
     $result = readSheet('เพื่อน_data');
     $data = $result['data'] ?? [];
