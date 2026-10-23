@@ -15,7 +15,7 @@
             <div class="card-body">
                 <h5 class="card-title text-primary">จัดการทะเบียนเพื่อน</h5>
                 <p class="card-text">เพิ่ม แก้ไข หรือลบข้อมูลสมาชิกในทะเบียนมิตรภาพ (แท็บ เพื่อน_data)[cite: 3]</p>
-                <a href="#" class="btn btn-outline-primary">จัดการข้อมูลเพื่อน</a>
+                <a href="friends.php" class="btn btn-outline-primary">จัดการข้อมูลเพื่อน</a>
             </div>
         </div>
     </div>
@@ -25,7 +25,7 @@
             <div class="card-body">
                 <h5 class="card-title text-success">บันทึกเหตุการณ์ (Event Log)</h5>
                 <p class="card-text">บันทึกเหตุการณ์สำคัญลงในแท็บ เหตุการณ์_log[cite: 7]</p>
-                <a href="#" class="btn btn-outline-success">บันทึกเหตุการณ์ใหม่</a>
+                <a href="events.php" class="btn btn-outline-success">บันทึกเหตุการณ์ใหม่</a>
             </div>
         </div>
     </div>
