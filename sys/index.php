@@ -20,7 +20,8 @@ try {
 
 } catch (Throwable $e) {
     http_response_code(503);
-    $status = 'เชื่อมต่อไม่สำเร็จ';
+    $status = 'เชื่อมต่อไม่สำเร็จ: ' . $e->getMessage();
+    error_log('Friendship Registry: ' . $e->getMessage());
 }
 ?>
 <!DOCTYPE html>
