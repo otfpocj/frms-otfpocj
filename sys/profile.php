@@ -1,106 +1,130 @@
-<?php
-require_once 'con/config.php';
+// ==========================================
+// ตั้งค่า Folder ID ของ Google Drive สำหรับเก็บรูปโปรไฟล์
+// ==========================================
+var FOLDER_ID = "ใส่_Folder_ID_ที่นี่"; // นำ ID โฟลเดอร์ใน Google Drive มาใส่ระหว่างเครื่องหมายคำพูด
 
-if (!isset($_SESSION['user_id'])) {
-    header("Location: login.php");
-    exit;
-}
-
-if (empty($_SESSION['csrf_token'])) {
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-}
-
-$message = '';
-$error = '';
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
-        $error = 'การตรวจสอบความปลอดภัยล้มเหลว';
-    } else {
-        $new_username = trim($_POST['username'] ?? '');
-        $new_photo = trim($_POST['photo_url'] ?? '');
-        $current_password = $_POST['current_password'] ?? '';
-        $new_password = $_POST['new_password'] ?? '';
-
-        $payload = [
-            'action' => 'update_profile',
-            'user_id' => $_SESSION['user_id'],
-            'username' => $new_username,
-            'photo_url' => $new_photo,
-            'current_password' => $current_password,
-            'new_password' => $new_password
-        ];
-
-        $response = post_to_gas($payload);
-
-        if (isset($response['status']) && $response['status'] === 'success') {
-            $_SESSION['username'] = $new_username;
-            $_SESSION['photo_url'] = $new_photo;
-            $message = 'อัปเดตโปรไฟล์เรียบร้อยแล้ว';
-        } else {
-            $error = $response['message'] ?? 'ไม่สามารถอัปเดตโปรไฟล์ได้';
-        }
+function doPost(e) {
+  try {
+    var data = JSON.parse(e.postData.contents);
+    var action = data.action;
+    
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    
+    if (action === 'login') {
+      return handleLogin(ss, data.username, data.password);
+    } else if (action === 'update_profile') {
+      return handleUpdateProfile(ss, data);
     }
+    
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error',
+      message: 'ไม่พบ Action ที่ระบุ'
+    })).setMimeType(ContentService.MimeType.JSON);
+    
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error',
+      message: 'Server Error: ' + error.toString()
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
 }
 
-require_once 'con/header.php';
-?>
+function handleLogin(ss, username, password) {
+  var sheet = ss.getSheetByName('ผู้ใช้งาน');
+  var rows = sheet.getDataRange().getValues();
+  
+  // คอลัมน์: A=ลำดับ, B=รหัสประจำตัว, C=ชื่อผู้ใช้, D=รหัสผ่าน, E=บทบาท, F=รูปภาพ
+  for (var i = 1; i < rows.length; i++) {
+    var row = rows[i];
+    var dbUsername = String(row[2]).trim();
+    var dbPassword = String(row[3]).trim();
+    
+    if (dbUsername === username) {
+      var isPasswordValid = (dbPassword === password);
+      
+      if (isPasswordValid) {
+        return ContentService.createTextOutput(JSON.stringify({
+          status: 'success',
+          data: {
+            user_id: String(row[1]),
+            username: dbUsername,
+            role: String(row[4]),
+            photo_url: String(row[5] || '')
+          }
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+  }
+  
+  return ContentService.createTextOutput(JSON.stringify({
+    status: 'error',
+    message: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง'
+  })).setMimeType(ContentService.MimeType.JSON);
+}
 
-<div class="row justify-content-center">
-    <div class="col-md-8">
-        <div class="card shadow-sm">
-            <div class="card-body p-4">
-                <h3 class="mb-4">จัดการโปรไฟล์ส่วนตัว</h3>
-                
-                <?php if (!empty($message)): ?>
-                    <div class="alert alert-success"><?= escape($message) ?></div>
-                <?php endif; ?>
-                <?php if (!empty($error)): ?>
-                    <div class="alert alert-danger"><?= escape($error) ?></div>
-                <?php endif; ?>
-
-                <form method="POST" action="profile.php">
-                    <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
-
-                    <div class="mb-3">
-                        <label class="form-label">รหัสประจำตัว</label>
-                        <input type="text" class="form-control" value="<?= escape($_SESSION['user_id']) ?>" disabled>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label">บทบาท</label>
-                        <input type="text" class="form-control" value="<?= escape($_SESSION['role']) ?>" disabled>
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="username" class="form-label">ชื่อผู้ใช้</label>
-                        <input type="text" class="form-control" id="username" name="username" value="<?= escape($_SESSION['username']) ?>" required>
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="photo_url" class="form-label">ลิงก์รูปโปรไฟล์ (Photo URL)</label>
-                        <input type="text" class="form-control" id="photo_url" name="photo_url" value="<?= escape($_SESSION['photo_url'] ?? '') ?>">
-                    </div>
-
-                    <hr class="my-4">
-                    <h5 class="mb-3">เปลี่ยนรหัสผ่าน (หากไม่ต้องการเปลี่ยน ให้เว้นว่างไว้)</h5>
-
-                    <div class="mb-3">
-                        <label for="current_password" class="form-label">รหัสผ่านปัจจุบัน</label>
-                        <input type="password" class="form-control" id="current_password" name="current_password">
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="new_password" class="form-label">รหัสผ่านใหม่</label>
-                        <input type="password" class="form-control" id="new_password" name="new_password">
-                    </div>
-
-                    <button type="submit" class="btn btn-primary">บันทึกการเปลี่ยนแปลง</button>
-                    <a href="dashboard.php" class="btn btn-secondary">กลับหน้าหลัก</a>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
-
-<?php require_once 'con/footer.php'; ?>
+function handleUpdateProfile(ss, data) {
+  var sheet = ss.getSheetByName('ผู้ใช้งาน');
+  var rows = sheet.getDataRange().getValues();
+  var userId = String(data.user_id);
+  
+  for (var i = 1; i < rows.length; i++) {
+    if (String(rows[i][1]) === userId) {
+      var rowNum = i + 1;
+      
+      // อัปเดตชื่อผู้ใช้ (คอลัมน์ C)
+      if (data.username) {
+        sheet.getRange(rowNum, 3).setValue(data.username);
+      }
+      
+      // อัปเดตรหัสผ่านใหม่ (คอลัมน์ D)
+      if (data.new_password) {
+        sheet.getRange(rowNum, 4).setValue(data.new_password);
+      }
+      
+      var photoUrl = String(rows[i][5] || ''); // คอลัมน์ F
+      
+      // จัดการอัปโหลดรูปภาพลง Google Drive ผ่าน Folder ID ที่กำหนด
+      if (data.image_base64 && data.image_name) {
+        try {
+          var folder;
+          if (FOLDER_ID && FOLDER_ID !== "ใส่_Folder_ID_ที่นี่") {
+            folder = DriveApp.getFolderById(FOLDER_ID);
+          } else {
+            // หากยังไม่ได้ใส่ Folder ID จะสร้างโฟลเดอร์สำรองให้อัตโนมัติ
+            var folderName = "Friendship_System_Uploads";
+            var folders = DriveApp.getFoldersByName(folderName);
+            folder = folders.hasNext() ? folders.next() : DriveApp.createFolder(folderName);
+          }
+          
+          var blob = Utilities.newBlob(
+            Utilities.base64Decode(data.image_base64), 
+            data.image_mime, 
+            data.image_name
+          );
+          
+          var file = folder.createFile(blob);
+          file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+          
+          var fileId = file.getId();
+          photoUrl = "https://drive.google.com/uc?export=view&id=" + fileId;
+          
+          // บันทึกลงคอลัมน์ F (รูปภาพ)
+          sheet.getRange(rowNum, 6).setValue(photoUrl);
+        } catch (imgError) {
+          // จัดการข้อผิดพลาดในการอัปโหลดรูปภาพ
+        }
+      }
+      
+      return ContentService.createTextOutput(JSON.stringify({
+        status: 'success',
+        message: 'อัปเดตโปรไฟล์สำเร็จ',
+        photo_url: photoUrl
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+  
+  return ContentService.createTextOutput(JSON.stringify({
+    status: 'error',
+    message: 'ไม่พบผู้ใช้งานที่ต้องการอัปเดต'
+  })).setMimeType(ContentService.MimeType.JSON);
+}
