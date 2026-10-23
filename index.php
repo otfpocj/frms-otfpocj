@@ -1,11 +1,11 @@
 <?php
 echo "<h1>กำลังทดสอบเชื่อมต่อฐานข้อมูล MySQL...</h1>";
 
-$host = "ใส่_Host_ของ_MySQL_ที่นี่";
-$port = "3306";
-$dbname = "ใส่_ชื่อฐานข้อมูล_ที่นี่";
-$user = "ใส่_Username_ที่นี่";
-$password = "ใส่_Password_ที่นี่";
+$host = "mysql-2a688ddf-otfpocj-e6a9.a.aivencloud.com";
+$port = "22599";
+$dbname = "defaultdb";
+$user = "avnadmin";
+$password = "AVNS_uTgkO7_FL-XANbkqdhA";
 
 try {
     $dsn = "mysql:host=$host;port=$port;dbname=$dbname;charset=utf8mb4";
