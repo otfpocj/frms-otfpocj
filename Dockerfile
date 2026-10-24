@@ -1,7 +1,13 @@
-FROM php:8.2-apache
+FROM node:18-alpine
 
-# ติดตั้ง Driver สำหรับ MySQL (mysqli และ pdo_mysql)
-RUN docker-php-ext-install mysqli pdo pdo_mysql
+WORKDIR /app
 
-COPY . /var/www/html/
-EXPOSE 80
+COPY package*.json ./
+
+RUN npm install --production
+
+COPY . .
+
+EXPOSE 3000
+
+CMD ["npm", "start"]
