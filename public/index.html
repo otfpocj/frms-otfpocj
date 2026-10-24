@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ระบบทะเบียนมิตรภาพ</title>
+    <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600&display=swap" rel="stylesheet">
     <style>
@@ -28,7 +29,8 @@
         </div>
     </div>
 
-    <div id="login-container" class="container d-flex justify-content-center align-items-center main-content">
+    <!-- หน้าเข้าสู่ระบบ (Login) -->
+    <div id="login-container" class="container d-flex justify-content-center align-items-center main-content" style="display: none;">
         <div class="card p-4 shadow" style="width: 100%; max-width: 420px;">
             <h3 class="text-center mb-2 text-primary fw-bold">ทะเบียนมิตรภาพ</h3>
             <p class="text-center text-muted small mb-4">สำนักงานเพื่อส่งเสริมชตินนท์ จากรัมย์</p>
@@ -45,6 +47,7 @@
         </div>
     </div>
 
+    <!-- หน้าแดชบอร์ดหลัก (App Container) -->
     <div id="app-container" class="main-content" style="display: none;">
         <nav class="navbar navbar-dark bg-dark px-3">
             <div class="container-fluid">
@@ -82,7 +85,6 @@
         let currentUser = null;
         let currentProfile = null;
 
-        // ฟังก์ชันส่งคำขอหา Proxy Server บน Render
         async function callGAS(action, payload = {}) {
             const response = await fetch('/api/gas', {
                 method: 'POST',
@@ -112,18 +114,24 @@
                 currentUser = JSON.parse(savedUser);
                 loadDashboardData();
             } else {
-                document.getElementById('login-container').style.setProperty('display', 'flex', 'important');
-                document.getElementById('app-container').style.setProperty('display', 'none', 'important');
+                showLoginView();
             }
 
-            // รองรับกดปุ่ม Back/Forward บนเบราว์เซอร์
             window.onpopstate = function() {
-                if(currentUser) {
-                    let path = window.location.pathname.replace('/', '') || 'home';
+                let path = window.location.pathname.replace('/', '') || 'home';
+                if (currentUser) {
                     showPage(path, false);
+                } else {
+                    showLoginView();
                 }
             };
         };
+
+        function showLoginView() {
+            document.getElementById('login-container').style.setProperty('display', 'flex', 'important');
+            document.getElementById('app-container').style.setProperty('display', 'none', 'important');
+            window.history.replaceState({}, '', '/login');
+        }
 
         function showLoading(show) {
             document.getElementById('loading').style.display = show ? 'flex' : 'none';
@@ -153,7 +161,7 @@
                 }
             } catch(e) {
                 showLoading(false);
-                document.getElementById('login-error').innerText = "เชื่อมต่อล้มเหลว";
+                document.getElementById('login-error').innerText = "เชื่อมต่อระบบล้มเหลว";
             }
         }
 
@@ -161,9 +169,7 @@
             localStorage.removeItem('chat_user');
             currentUser = null;
             currentProfile = null;
-            window.history.pushState({}, '', '/login');
-            document.getElementById('app-container').style.setProperty('display', 'none', 'important');
-            document.getElementById('login-container').style.setProperty('display', 'flex', 'important');
+            showLoginView();
             document.getElementById('username').value = '';
             document.getElementById('password').value = '';
         }
@@ -194,6 +200,7 @@
                 setupMenus();
                 
                 let currentRoute = window.location.pathname.replace('/', '') || 'home';
+                if(currentRoute === 'login' || !currentRoute) currentRoute = 'home';
                 showPage(currentRoute, false);
             } catch(e) {
                 showLoading(false);
@@ -307,7 +314,10 @@
                 let filteredNames = (nameLogs || []).filter(belongsToCurrentUser);
                 let filteredEvents = (eventLogs || []).filter(belongsToCurrentUser);
 
-                let rankRows = filteredRanks.map(l => `
+                let rankRows = filteredRanks.map(l => {
+                    let isMyRequest = l.ผู้เสนอ === currentUser.username && l.สถานะ === 'รออนุมัติ';
+                    let withdrawBtn = isMyRequest ? `<button class="btn btn-sm btn-outline-danger ms-1 py-0 px-1" onclick="withdrawRequest('ยศ_log', ${l.rowIdx})">ถอนคำขอ</button>` : '';
+                    return `
                     <tr>
                         <td>${l.ลำดับ}</td>
                         <td>${l.รหัสประจำตัว}</td>
@@ -315,15 +325,18 @@
                         <td>${l.ครั้งที่เลื่อนยศ}</td>
                         <td>${l.ปีที่เลื่อนยศ}</td>
                         <td>${l.อัปเดตเมื่อ || '-'}</td>
-                        <td><span class="badge bg-${l.สถานะ === 'อนุมัติ' ? 'success' : (l.สถานะ === 'ไม่อนุมัติ' ? 'danger' : 'warning')}">${l.สถานะ}</span></td>
+                        <td><span class="badge bg-${l.สถานะ === 'อนุมัติ' ? 'success' : (l.สถานะ === 'ไม่อนุมัติ' ? 'danger' : 'warning')}">${l.สถานะ}</span>${withdrawBtn}</td>
                         <td>${l.ผู้เสนอ || '-'} (${l.ตำแหน่งผู้เสนอ || '-'})</td>
                         <td>${l.ผู้พิจารณา || '-'} (${l.ตำแหน่งผู้พิจารณา || '-'})</td>
                         <td>${l.ความคิดเห็นผู้เสนอ || '-'}</td>
                         <td>${l.ความคิดเห็นผู้พิจารณา || '-'}</td>
                     </tr>
-                `).join('');
+                `;}).join('');
 
-                let nameRows = filteredNames.map(l => `
+                let nameRows = filteredNames.map(l => {
+                    let isMyRequest = l.ผู้เสนอ === currentUser.username && l.สถานะ === 'รออนุมัติ';
+                    let withdrawBtn = isMyRequest ? `<button class="btn btn-sm btn-outline-danger ms-1 py-0 px-1" onclick="withdrawRequest('ชื่อ_log', ${l.rowIdx})">ถอนคำขอ</button>` : '';
+                    return `
                     <tr>
                         <td>${l.ลำดับ}</td>
                         <td>${l.รหัสประจำตัว}</td>
@@ -331,11 +344,20 @@
                         <td>${l.ครั้งที่ตั้งชื่อ}</td>
                         <td>${l.ปีที่ตั้งชื่อ}</td>
                         <td>${l.อัปเดตเมื่อ || '-'}</td>
-                        <td><span class="badge bg-${l.สถานะ === 'อนุมัติ' ? 'success' : (l.สถานะ === 'ไม่อนุมัติ' ? 'danger' : 'warning')}">${l.สถานะ}</span></td>
+                        <td><span class="badge bg-${l.สถานะ === 'อนุมัติ' ? 'success' : (l.สถานะ === 'ไม่อนุมัติ' ? 'danger' : 'warning')}">${l.สถานะ}</span>${withdrawBtn}</td>
                         <td>${l.ผู้เสนอ || '-'}</td>
                         <td>${l.ผู้พิจารณา || '-'}</td>
                         <td>${l.ความคิดเห็นผู้เสนอ || '-'}</td>
                         <td>${l.ความคิดเห็นผู้พิจารณา || '-'}</td>
+                    </tr>
+                `;}).join('');
+
+                let eventRows = filteredEvents.map(e => `
+                    <tr>
+                        <td>${e.ลำดับ}</td>
+                        <td>${e.รายละเอียดเหตุการณ์}</td>
+                        <td>${e.วันที่บันทึก ? new Date(e.วันที่บันทึก).toLocaleString() : '-'}</td>
+                        <td>${e.ผู้บันทึก} (${e.ตำแหน่ง})</td>
                     </tr>
                 `).join('');
 
@@ -365,6 +387,113 @@
                             <table class="table table-bordered table-striped small align-middle">
                                 <thead class="table-dark"><tr><th>ลำดับ</th><th>รหัส</th><th>ชื่อใหม่</th><th>ครั้ง</th><th>ปี</th><th>อัปเดต</th><th>สถานะ</th><th>ผู้เสนอ</th><th>ผู้พิจารณา</th><th>ความเห็นผู้เสนอ</th><th>ความเห็นผู้พิจารณา</th></tr></thead>
                                 <tbody>${nameRows || '<tr><td colspan="11" class="text-center">ไม่มีข้อมูล</td></tr>'}</tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            } else if(page === 'request_rank') {
+                showLoading(true);
+                const ranks = await callGAS('getAllRanks');
+                const friends = await callGAS('getAllFriends');
+                showLoading(false);
+
+                let rankOpts = (ranks || []).map(r => `<option value="${r.ชื่อยศ}">${r.รหัสยศ} - ${r.ชื่อยศ}</option>`).join('');
+                let friendOpts = (friends || []).map(f => `<option value="${f['รหัสประจำตัว']}">${f['ชื่อแสดงผล']} (${f['รหัสประจำตัว']})</option>`).join('');
+                
+                area.innerHTML = `
+                    <div class="card p-4 mx-auto" style="max-width: 600px;">
+                        <h3 class="text-primary mb-3 text-center">ยื่นคำขอเลื่อนยศ</h3>
+                        <p class="text-center text-muted small">คำขอจะถูกส่งให้ผู้อำนวยการพิจารณาอนุมัติ</p>
+                        <hr>
+                        ${currentUser.role === 'ผู้ถูกปกป้อง' ? `
+                        <div class="mb-3">
+                            <label class="form-label">เลือกเพื่อนที่ต้องการเสนอเลื่อนยศ</label>
+                            <select id="target-user-id" class="form-select">${friendOpts}</select>
+                        </div>` : `<input type="hidden" id="target-user-id" value="${currentUser.id}">`}
+                        <div class="mb-3">
+                            <label class="form-label">เลือกยศที่ต้องการ</label>
+                            <select id="target-rank" class="form-select">${rankOpts}</select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">ความคิดเห็น / เหตุผลประกอบ</label>
+                            <textarea id="rank-comment" class="form-control" rows="3" placeholder="ระบุเหตุผล..."></textarea>
+                        </div>
+                        <button onclick="submitRankRequest()" class="btn btn-primary w-100 fw-bold">ส่งคำขอเลื่อนยศ</button>
+                    </div>
+                `;
+            } else if(page === 'request_name') {
+                showLoading(true);
+                const friends = await callGAS('getAllFriends');
+                showLoading(false);
+
+                let friendOpts = (friends || []).map(f => `<option value="${f['รหัสประจำตัว']}">${f['ชื่อแสดงผล']} (${f['รหัสประจำตัว']})</option>`).join('');
+                
+                area.innerHTML = `
+                    <div class="card p-4 mx-auto" style="max-width: 600px;">
+                        <h3 class="text-primary mb-3 text-center">เสนอเปลี่ยนชื่อ</h3>
+                        <p class="text-center text-muted small">เฉพาะผู้ถูกปกป้องสามารถเสนอเปลี่ยนชื่อเพื่อนหรือตนเองได้</p>
+                        <hr>
+                        <div class="mb-3">
+                            <label class="form-label">เลือกเพื่อนที่ต้องการเสนอเปลี่ยนชื่อ</label>
+                            <select id="name-target-id" class="form-select">${friendOpts}</select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">ชื่อ-นามสกุลใหม่ที่ต้องการเสนอ</label>
+                            <input type="text" id="new-name-input" class="form-control" placeholder="กรอกชื่อ-นามสกุลใหม่">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">ความคิดเห็น / เหตุผล</label>
+                            <textarea id="name-comment" class="form-control" rows="3" placeholder="ระบุเหตุผล..."></textarea>
+                        </div>
+                        <button onclick="submitNameRequest()" class="btn btn-primary w-100 fw-bold">ส่งคำขอเปลี่ยนชื่อ</button>
+                    </div>
+                `;
+            } else if(page === 'event_log') {
+                area.innerHTML = `
+                    <div class="card p-4 mx-auto" style="max-width: 600px;">
+                        <h3 class="text-primary mb-3 text-center">บันทึกเหตุการณ์</h3>
+                        <p class="text-center text-muted small">เฉพาะผู้ถูกปกป้องเท่านั้นที่มีสิทธิ์บันทึกเหตุการณ์</p>
+                        <hr>
+                        <div class="mb-3">
+                            <label class="form-label">รายละเอียดเหตุการณ์</label>
+                            <textarea id="event-detail" class="form-control" rows="4" placeholder="กรอกรายละเอียดเหตุการณ์..."></textarea>
+                        </div>
+                        <button onclick="submitEventLog()" class="btn btn-success w-100 fw-bold">บันทึกเหตุการณ์</button>
+                    </div>
+                `;
+            } else if(page === 'manage_friends') {
+                showLoading(true);
+                const friends = await callGAS('getAllFriends');
+                showLoading(false);
+
+                let rows = (friends || []).map(f => `
+                    <tr>
+                        <td>${f['ลำดับ']}</td>
+                        <td>${f['รหัสประจำตัว']}</td>
+                        <td>${f['เลขประจำตัวนักเรียน'] || ''}</td>
+                        <td>${f['ชื่อแสดงผล'] || ''}</td>
+                        <td>${f['ตำแหน่ง'] || ''}</td>
+                        <td>${f['ยศปัจจุบัน'] || ''}</td>
+                        <td>${f['โรงเรียนปัจจุบัน'] || ''}</td>
+                        <td>${f['ระดับชั้นปัจจุบัน'] || ''} / ${f['ห้องเรียนปัจจุบัน'] || ''}</td>
+                        <td>
+                            <button class="btn btn-sm btn-warning fw-bold" onclick='openFriendForm(${JSON.stringify(JSON.stringify(f))})'>แก้ไข</button>
+                        </td>
+                    </tr>
+                `).join('');
+
+                area.innerHTML = `
+                    <div class="card p-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h3 class="text-primary m-0">จัดการข้อมูลประวัติเพื่อน</h3>
+                            <button class="btn btn-primary btn-sm fw-bold" onclick="openFriendForm()">+ สร้างข้อมูลเพื่อนใหม่</button>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-hover table-bordered small align-middle">
+                                <thead class="table-dark">
+                                    <tr><th>ลำดับ</th><th>รหัส</th><th>เลข นร.</th><th>ชื่อ-นามสกุล</th><th>ตำแหน่ง</th><th>ยศ</th><th>โรงเรียน</th><th>ชั้น/ห้อง</th><th>จัดการ</th></tr>
+                                </thead>
+                                <tbody>${rows}</tbody>
                             </table>
                         </div>
                     </div>
@@ -435,6 +564,15 @@
             }
         }
 
+        async function withdrawRequest(sheetName, rowIdx) {
+            if(!confirm("คุณต้องการถอนคำขอนี้ใช่หรือไม่?")) return;
+            showLoading(true);
+            const res = await callGAS('deleteLogRequest', { sheetName, rowIdx, username: currentUser.username });
+            showLoading(false);
+            alert(res.message);
+            showPage('history', false);
+        }
+
         async function updateAccount() {
             let u = document.getElementById('new-username').value.trim();
             let p = document.getElementById('new-password').value.trim();
@@ -446,6 +584,121 @@
                 currentUser.username = u; 
                 localStorage.setItem('chat_user', JSON.stringify(currentUser));
             }
+        }
+
+        async function submitRankRequest() {
+            let targetUserId = document.getElementById('target-user-id') ? document.getElementById('target-user-id').value : currentUser.id;
+            let rank = document.getElementById('target-rank').value;
+            let comment = document.getElementById('rank-comment').value;
+            if(!targetUserId) { alert("กรุณาเลือกเพื่อน"); return; }
+            showLoading(true);
+            const res = await callGAS('requestRank', { userId: targetUserId, targetRank: rank, comment, proposer: currentUser.username, proposerPos: currentUser.role });
+            showLoading(false);
+            alert(res.message);
+            showPage('history', false);
+        }
+
+        async function submitNameRequest() {
+            let targetUserId = document.getElementById('name-target-id').value;
+            let newName = document.getElementById('new-name-input').value.trim();
+            let comment = document.getElementById('name-comment').value;
+            if(!targetUserId || !newName) { alert("กรุณาเลือกเพื่อนและระบุชื่อใหม่ให้ครบถ้วน"); return; }
+            showLoading(true);
+            const res = await callGAS('requestNameChange', { userId: targetUserId, newName, comment, proposer: currentUser.username, proposerPos: currentUser.role });
+            showLoading(false);
+            alert(res.message);
+            showPage('history', false);
+        }
+
+        async function submitEventLog() {
+            let detail = document.getElementById('event-detail').value.trim();
+            if(!detail) { alert("กรุณากรอกรายละเอียดเหตุการณ์"); return; }
+            showLoading(true);
+            const res = await callGAS('saveEventLog', { eventDetail: detail, proposer: currentUser.username, proposerPos: currentUser.role });
+            showLoading(false);
+            alert(res.message);
+            showPage('history', false);
+        }
+
+        function openFriendForm(jsonStr = null) {
+            let f = jsonStr ? JSON.parse(jsonStr) : {};
+            let area = document.getElementById('content-area');
+            area.innerHTML = `
+                <div class="card p-4 mx-auto" style="max-width: 750px;">
+                    <h3 class="text-primary mb-3 text-center">${f['รหัสประจำตัว'] ? 'แก้ไขข้อมูลประวัติเพื่อน' : 'สร้างข้อมูลเพื่อนใหม่'}</h3>
+                    <hr>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">รหัสประจำตัว (เช่น F004)</label>
+                            <input type="text" id="f-id" class="form-control" value="${f['รหัสประจำตัว'] || ''}" ${f['รหัสประจำตัว'] ? 'disabled' : ''}>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">เลขประจำตัวนักเรียน</label>
+                            <input type="text" id="f-studentId" class="form-control" value="${f['เลขประจำตัวนักเรียน'] || ''}">
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label">คำนำหน้า</label>
+                            <input type="text" id="f-prefix" class="form-control" value="${f['คำนำหน้า'] || ''}">
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label">ชื่อ-นามสกุล</label>
+                            <input type="text" id="f-fullName" class="form-control" value="${f['ชื่อ-นามสกุล'] || ''}">
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">ตำแหน่ง</label>
+                            <input type="text" id="f-position" class="form-control" value="${f['ตำแหน่ง'] || ''}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">ยศปัจจุบัน</label>
+                            <input type="text" id="f-currentRank" class="form-control" value="${f['ยศปัจจุบัน'] || ''}">
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label">โรงเรียนปัจจุบัน</label>
+                            <input type="text" id="f-school" class="form-control" value="${f['โรงเรียนปัจจุบัน'] || ''}">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">ระดับชั้นปัจจุบัน</label>
+                            <input type="text" id="f-level" class="form-control" value="${f['ระดับชั้นปัจจุบัน'] || ''}">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">ห้องเรียนปัจจุบัน</label>
+                            <input type="text" id="f-classroom" class="form-control" value="${f['ห้องเรียนปัจจุบัน'] || ''}">
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button onclick="saveFriend()" class="btn btn-success flex-grow-1 fw-bold">บันทึกข้อมูล</button>
+                        <button onclick="showPage('manage_friends', true)" class="btn btn-secondary px-4">ยกเลิก</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function saveFriend() {
+            let formData = {
+                id: document.getElementById('f-id').value.trim(),
+                studentId: document.getElementById('f-studentId').value.trim(),
+                prefix: document.getElementById('f-prefix').value.trim(),
+                fullName: document.getElementById('f-fullName').value.trim(),
+                position: document.getElementById('f-position').value.trim(),
+                currentRank: document.getElementById('f-currentRank').value.trim(),
+                school: document.getElementById('f-school').value.trim(),
+                level: document.getElementById('f-level').value.trim(),
+                classroom: document.getElementById('f-classroom').value.trim(),
+                recorder: currentUser.username,
+                recorderPos: currentUser.role
+            };
+            if(!formData.id) { alert("กรุณากรอกรหัสประจำตัว"); return; }
+            showLoading(true);
+            const res = await callGAS('saveFriendData', { formData });
+            showLoading(false);
+            alert(res.message);
+            showPage('manage_friends', false);
         }
 
         async function processRank(rowIdx, status, userId) {
